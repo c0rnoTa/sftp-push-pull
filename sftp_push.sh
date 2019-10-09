@@ -2,7 +2,7 @@
 
 set -x
 
-# Скрипт переноса .xml.pgp файлов на другой сервер
+# Скрипт переноса XML файлов на другой сервер
 # Разработал Антон Захаров hello@antonzakharov.ru
 
 ################
@@ -17,7 +17,7 @@ PATH_DESTINATION=REMOTEUSER@10.0.0.1:
 
 DO_DELETE=1
 
-FILE_EXTENSION=.xml.pgp
+FILE_EXTENSION=.xml
 
 ########################
 # НАЧАЛО АРХИВИРОВАНИЯ #
@@ -48,17 +48,23 @@ if [ ! -z "$PATH_SOURCE" ]; then
     find $PATH_SOURCE -type f -name "*${FILE_EXTENSION}" -not -path "$PATH_SOURCE/PREPROD/*" -exec mv {} $BTEMPDIR/ \;
 fi
 
-# Переименовываю файлы
+
+# Шифрую файлы PGP ключем
 cd $BTEMPDIR
 for file in *${FILE_EXTENSION}; do
-  mv "./${file}" "./FOOD_${file}"
+  gpg --output "./${file}.pgp" --encrypt --recipient patrice.courtin@gemalto.com "./${file}" &&  rm "./${file}" || echo "Error, ${file} did not encrypt"
 done
 
+# Переименовываю файлы
+cd $BTEMPDIR
+for file in *${FILE_EXTENSION}.pgp; do
+  mv "./${file}" "./FOOD_${file}"
+done
 
 # Копирование на внешний ресурс
 sftp -P10022 -o KexAlgorithms=diffie-hellman-group14-sha1 -o BatchMode=no -b - $PATH_DESTINATION<<EOC
 cd out
-mput *${FILE_EXTENSION}
+mput *${FILE_EXTENSION}.pgp
 EOC
 
 # Сжимаем конечный архив
